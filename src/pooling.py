@@ -1,6 +1,6 @@
 import numpy as np 
 
-def max_pooling(image, pool_size=2, stride=2):
+def pooling(image, kernel_size=2, stride=2, mode="max"):
 
     """
      Max pooling formula:
@@ -20,8 +20,8 @@ def max_pooling(image, pool_size=2, stride=2):
     # output size 
     # output size = (input size - pool size) // stride + 1
     # we use this // not this / because we want to get the whole number of output size
-    output_height = (height - pool_size) // stride + 1
-    output_width  = (width - pool_size) // stride + 1
+    output_height = (height - kernel_size) // stride + 1
+    output_width  = (width - kernel_size) // stride + 1
 
     # Create an empty matrix filled with zeros, with the size of the max-pooling output.
     # we're going to put the max values into this matrix as we perform max pooling.
@@ -41,18 +41,22 @@ def max_pooling(image, pool_size=2, stride=2):
             start_j = j * stride
 
             # where the pooling window ends
-            end_i = start_i + pool_size
-            end_j = start_j + pool_size
+            end_i = start_i + kernel_size
+
+            end_j = start_j + kernel_size
+
 
             # # Extract pooling window
             window = image[start_i:end_i, start_j:end_j]
 
-            # Take maximun
-            output[i, j] = np.max(window)
+            if mode == "max":
+                # Perform max pooling
+                output[i, j] = np.max(window)
+            elif mode == "avg":
+                # Perform average pooling
+                output[i, j] = np.mean(window)
+            else:
+                raise ValueError("mode must be 'max' or 'avg'")
     return output
 
-
-def average_pooling(image, pool_size=2, stride=2):
-
-    pass
 
