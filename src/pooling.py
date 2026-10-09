@@ -1,62 +1,78 @@
-import numpy as np 
+import numpy as np
+class MaxPool2D:
+    def __init__(self, kernel_size=2, stride=None):
+        self.kernel_size = kernel_size
+        self.stride = (
+            kernel_size if stride is None else stride
+        )
 
-def pooling(image, kernel_size=2, stride=2, mode="max"):
+    def forward(self, x):
+        # x: (N, C, H, W)
+        self.x_shape = x.shape
 
-    """
-     Max pooling formula:
-     Y(i, j) = max X(i*S + m, j*S + n)
-     where 0 <= m < Ph and 0 <= n < Pw
+        N, C, H, W = x.shape
+        K = self.kernel_size
+        S = self.stride
 
-    X = input feature map
-    Y= output feature map
-    P_h = pooling window height
-    P_w = pooling window width
-    S = stride
-    i,j = output coordinates
-    m,n = coordinates inside the pooling window
-    """
-    height, width = image.shape
+        OH = (H - K) // S + 1
+        OW = (W - K) // S + 1
 
-    # output size 
-    # output size = (input size - pool size) // stride + 1
-    # we use this // not this / because we want to get the whole number of output size
-    output_height = (height - kernel_size) // stride + 1
-    output_width  = (width - kernel_size) // stride + 1
+        output = np.zeros(
+            (N, C, OH, OW), dtype=x.dtype
+        )
+        self.argmax = np.zeros(
+            (N, C, OH, OW), dtype=np.int64
+        )
 
-    # Create an empty matrix filled with zeros, with the size of the max-pooling output.
-    # we're going to put the max values into this matrix as we perform max pooling.
-    output = np.zeros((output_height, output_width))
+        for oy in range(OH):
+            for ox in range(OW):
+                patch = x[
+                    :,
+                    :,
+                    oy * S:oy * S + K,
+                    ox * S:ox * S + K,
+                ]
 
-    # (i, j)
-    # (0,0)  (0,1)  (0,2)
-    # (1,0)  (1,1)  (1,2)
-    # (2,0)  (2,1)  (2,2)
-    for i in range(output_height):
-        for j in range(output_width):
+                flattened = patch.reshape(N, C, K * K)
 
-            # Find the coordinates of the current window
-            # Based on where I am in the output, calculate where the pooling window 
-            # should start in the input.
-            start_i = i * stride 
-            start_j = j * stride
+                self.argmax[:, :, oy, ox] = np.argmax(
+                    flattened, axis=2
+                )
 
-            # where the pooling window ends
-            end_i = start_i + kernel_size
+                output[:, :, oy, ox] = np.max(
+                    flattened, axis=2
+                )
 
-            end_j = start_j + kernel_size
+        return output
 
+    def backward(self, dout):
+        N, C, H, W = self.x_shape
+        K = self.kernel_size
+        S = self.stride
 
-            # # Extract pooling window
-            window = image[start_i:end_i, start_j:end_j]
+        OH, OW = dout.shape[2:]
 
-            if mode == "max":
-                # Perform max pooling
-                output[i, j] = np.max(window)
-            elif mode == "avg":
-                # Perform average pooling
-                output[i, j] = np.mean(window)
-            else:
-                raise ValueError("mode must be 'max' or 'avg'")
-    return output
+        dx = np.zeros(
+            (N, C, H, W), dtype=dout.dtype
+        )
 
+        for oy in range(OH):
+            for ox in range(OW):
+                indices = self.argmax[:, :, oy, ox]
 
+                for ky in range(K):
+                    for kx in range(K):
+                        index = ky * K + kx
+                        mask = indices == index
+
+                        dx[
+                            :,
+                            :,
+                            oy * S + ky,
+                            ox * S + kx,
+                        ] += dout[:, :, oy, ox] * mask
+
+        return dx
+
+    def parameters_and_grads(self):
+        return []
